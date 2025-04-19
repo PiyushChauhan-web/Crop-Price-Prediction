@@ -4,1074 +4,1009 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
 from sklearn.metrics import mean_squared_error, r2_score
 import streamlit as st
-import requests
-import json
-from datetime import datetime
-import joblib
+import pickle
 import os
+from datetime import datetime, timedelta
+import warnings
+warnings.filterwarnings('ignore')
 
-class CropPredictionApp:
-    def __init__(self):
-        self.model = None
-        self.preprocessor = None
-        self.data = None
-        self.api_key = "YOUR_API_KEY"  # Replace with actual API key for market data
-        self.market_api_url = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"  # Example API
+# Set page configuration
+st.set_page_config(
+    page_title="Crop Price Prediction",
+    page_icon="🌾",
+    layout="wide"
+)
 
-    def load_data(self, file_path):
-        """Load data from CSV file"""
-        try:
-            self.data = pd.read_csv(file_path)
-            return True, "Data loaded successfully!"
-        except Exception as e:
-            return False, f"Error loading data: {str(e)}"
-
-    def preprocess_data(self):
-        """Preprocess the data for model training"""
-        # Identify categorical and numerical columns
-        categorical_cols = self.data.select_dtypes(include=['object']).columns.tolist()
-        numerical_cols = self.data.select_dtypes(include=['int64', 'float64']).columns.tolist()
-        
-        # Remove target column from features
-        if 'crop_price' in numerical_cols:
-            numerical_cols.remove('crop_price')
-        
-        # Create column transformer for preprocessing
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', StandardScaler(), numerical_cols),
-                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_cols)
-            ])
-        
-        self.preprocessor = preprocessor
-        return preprocessor
-    
-    def train_model(self, test_size=0.2, random_state=42):
-        """Train the prediction model"""
-        if self.data is None:
-            return False, "No data loaded. Please load data first."
-        
-        try:
-            # Check if target column exists
-            if 'crop_price' not in self.data.columns:
-                return False, "Target column 'crop_price' not found in data."
-            
-            # Split features and target
-            X = self.data.drop('crop_price', axis=1)
-            y = self.data['crop_price']
-            
-            # Preprocess data
-            preprocessor = self.preprocess_data()
-            
-            # Create and train model pipeline
-            model = Pipeline(steps=[
-                ('preprocessor', preprocessor),
-                ('regressor', RandomForestRegressor(n_estimators=100, random_state=random_state))
-            ])
-            
-            # Split data
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=random_state)
-            
-            # Train model
-            model.fit(X_train, y_train)
-            
-            # Evaluate model
-            y_pred = model.predict(X_test)
-            mse = mean_squared_error(y_test, y_pred)
-            r2 = r2_score(y_test, y_pred)
-            
-            self.model = model
-            
-            return True, {
-                "model": model,
-                "metrics": {
-                    "MSE": mse,
-                    "R-squared": r2
-                }
-            }
-        
-        except Exception as e:
-            return False, f"Error training model: {str(e)}"
-    
-    def save_model(self, model_path='crop_prediction_model.pkl'):
-        """Save the trained model to disk"""
-        if self.model is None:
-            return False, "No trained model to save."
-        
-        try:
-            joblib.dump(self.model, model_path)
-            return True, f"Model saved to {model_path}"
-        except Exception as e:
-            return False, f"Error saving model: {str(e)}"
-    
-    def load_model(self, model_path='crop_prediction_model.pkl'):
-        """Load a trained model from disk"""
-        try:
-            self.model = joblib.load(model_path)
-            return True, "Model loaded successfully!"
-        except Exception as e:
-            return False, f"Error loading model: {str(e)}"
-    
-    def predict_price(self, input_data):
-        """Predict crop price based on input data"""
-        if self.model is None:
-            return False, "No trained model available. Please train or load a model first."
-        
-        try:
-            # Convert input data to DataFrame if it's not already
-            if not isinstance(input_data, pd.DataFrame):
-                input_data = pd.DataFrame([input_data])
-            
-            # Make prediction
-            prediction = self.model.predict(input_data)
-            return True, prediction[0]
-        
-        except Exception as e:
-            return False, f"Error making prediction: {str(e)}"
-    
-    def get_market_price(self, crop_name, location):
-        """Get real-time market price for a crop from API"""
-        try:
-            # In a real application, you would make an API call here
-            # For demonstration purposes, we'll simulate this
-            params = {
-                'api-key': self.api_key,
-                'format': 'json',
-                'offset': 0,
-                'limit': 10,
-                'filters[commodity]': crop_name,
-                'filters[state]': location
-            }
-            
-            # Simulated API response for demonstration
-            # In a real application, uncomment the following lines:
-            # response = requests.get(self.market_api_url, params=params)
-            # if response.status_code == 200:
-            #     data = response.json()
-            #     # Process the data as needed
-            #     return True, data
-            # else:
-            #     return False, f"API error: {response.status_code}"
-            
-            # Simulated response
-            simulated_price = np.random.uniform(20, 100)
-            return True, {
-                "crop": crop_name,
-                "location": location,
-                "current_price": simulated_price,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-        
-        except Exception as e:
-            return False, f"Error fetching market price: {str(e)}"
-    
-    def analyze_factors(self, input_data):
-        """Analyze which factors are most influencing the predicted price"""
-        if self.model is None:
-            return False, "No trained model available. Please train or load a model first."
-        
-        try:
-            # For RandomForestRegressor, we can use feature importances
-            regressor = self.model.named_steps['regressor']
-            feature_importances = regressor.feature_importances_
-            
-            # Get feature names after preprocessing
-            preprocessor = self.model.named_steps['preprocessor']
-            
-            # Try to get feature names
-            try:
-                feature_names = preprocessor.get_feature_names_out()
-            except:
-                # If older scikit-learn version
-                categorical_cols = self.data.select_dtypes(include=['object']).columns.tolist()
-                numerical_cols = self.data.select_dtypes(include=['int64', 'float64']).columns.tolist()
-                if 'crop_price' in numerical_cols:
-                    numerical_cols.remove('crop_price')
-                feature_names = numerical_cols + [f"{col}_{val}" for col in categorical_cols for val in self.data[col].unique()]
-            
-            # Create importance DataFrame
-            importance_df = pd.DataFrame({
-                'Feature': feature_names,
-                'Importance': feature_importances
-            }).sort_values('Importance', ascending=False)
-            
-            return True, importance_df
-        
-        except Exception as e:
-            return False, f"Error analyzing factors: {str(e)}"
-    
-    def visualize_predictions(self, predicted_price, market_price, crop_name):
-        """Create visualization comparing predicted vs market price"""
-        fig, ax = plt.subplots(figsize=(10, 6))
-        
-        prices = [predicted_price, market_price]
-        labels = ['Predicted Price', 'Market Price']
-        colors = ['#3498db', '#e74c3c']
-        
-        bars = ax.bar(labels, prices, color=colors)
-        
-        # Add data labels on top of bars
-        for bar in bars:
-            height = bar.get_height()
-            ax.annotate(f'₹{height:.2f}',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),  # 3 points vertical offset
-                        textcoords="offset points",
-                        ha='center', va='bottom',
-                        fontsize=12, fontweight='bold')
-        
-        # Add styling
-        ax.set_title(f'Price Comparison for {crop_name}', fontsize=15, fontweight='bold')
-        ax.set_ylabel('Price (₹)', fontsize=12)
-        ax.grid(axis='y', linestyle='--', alpha=0.7)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
-        # Add differential indicator
-        diff = predicted_price - market_price
-        diff_percent = (diff / market_price) * 100
-        diff_text = f"Difference: ₹{abs(diff):.2f} ({abs(diff_percent):.1f}%)"
-        if diff > 0:
-            diff_text += " (Predicted higher)"
-            diff_color = 'green'
-        elif diff < 0:
-            diff_text += " (Market higher)"
-            diff_color = 'red'
+# Function to load data
+@st.cache_data
+def load_data(file):
+    try:
+        if file.name.endswith('.csv'):
+            df = pd.read_csv(file)
+        elif file.name.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file)
         else:
-            diff_text += " (Equal)"
-            diff_color = 'gray'
-        
-        plt.figtext(0.5, 0.01, diff_text, ha="center", fontsize=12, color=diff_color)
-        
-        plt.tight_layout(pad=3.0)
-        return fig
+            st.error("Unsupported file format. Please upload a CSV or Excel file.")
+            return None
+        return df
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
 
+# Function to check if model file exists
+def model_exists(model_path):
+    return os.path.exists(model_path)
 
-def create_streamlit_app():
-    """Create the Streamlit web application"""
-    st.set_page_config(page_title="Advanced Crop Price Prediction System", layout="wide")
-    
-    # Initialize app
-    app = CropPredictionApp()
-    
-    # Add CSS for better UI
+# Function to train model
+def train_model(X_train, y_train):
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+# Function to save model
+def save_model(model, model_path):
+    with open(model_path, 'wb') as file:
+        pickle.dump(model, file)
+
+# Function to load model
+def load_model(model_path):
+    with open(model_path, 'rb') as file:
+        model = pickle.load(file)
+    return model
+
+# Add custom CSS
+st.markdown("""
+<style>
+.main-header {
+    font-size: 2.5rem;
+    color: #3366FF;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.sub-header {
+    font-size: 1.8rem;
+    color: #0099CC;
+    margin-top: 1.5rem;
+    margin-bottom: 1rem;
+}
+.info-text {
+    background-color: #f0f8ff;
+    padding: 1rem;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Main app header
+st.markdown("<h1 class='main-header'>🌾 Agricultural Crop Price Prediction System</h1>", unsafe_allow_html=True)
+
+# Navigation menu
+menu = st.sidebar.selectbox(
+    "Navigation",
+    ["Home", "Data Exploration", "Model Training", "Price Prediction", "Market Insights"]
+)
+
+# States dictionary with major crops
+states_dict = {
+    "Andhra Pradesh": ["Rice", "Cotton", "Chillies", "Turmeric", "Sugarcane"],
+    "Assam": ["Rice", "Tea", "Jute", "Sugarcane", "Oilseeds"],
+    "Bihar": ["Rice", "Wheat", "Maize", "Pulses", "Sugarcane"],
+    "Chhattisgarh": ["Rice", "Maize", "Pulses", "Oilseeds", "Wheat"],
+    "Gujarat": ["Cotton", "Groundnut", "Wheat", "Bajra", "Sugarcane"],
+    "Haryana": ["Wheat", "Rice", "Sugarcane", "Cotton", "Oilseeds"],
+    "Himachal Pradesh": ["Apple", "Wheat", "Maize", "Potato", "Ginger"],
+    "Jharkhand": ["Rice", "Maize", "Pulses", "Wheat", "Oilseeds"],
+    "Karnataka": ["Rice", "Ragi", "Jowar", "Coffee", "Sugarcane"],
+    "Kerala": ["Coconut", "Rice", "Rubber", "Spices", "Banana"],
+    "Madhya Pradesh": ["Wheat", "Soybean", "Pulses", "Rice", "Cotton"],
+    "Maharashtra": ["Jowar", "Cotton", "Sugarcane", "Soybean", "Rice"],
+    "Odisha": ["Rice", "Pulses", "Oilseeds", "Jute", "Sugarcane"],
+    "Punjab": ["Wheat", "Rice", "Cotton", "Sugarcane", "Maize"],
+    "Rajasthan": ["Wheat", "Barley", "Pulses", "Oilseeds", "Cotton"],
+    "Tamil Nadu": ["Rice", "Sugarcane", "Coconut", "Cotton", "Groundnut"],
+    "Telangana": ["Rice", "Cotton", "Maize", "Pulses", "Chillies"],
+    "Uttar Pradesh": ["Wheat", "Sugarcane", "Rice", "Pulses", "Potato"],
+    "Uttarakhand": ["Rice", "Wheat", "Pulses", "Oilseeds", "Sugarcane"],
+    "West Bengal": ["Rice", "Jute", "Potato", "Tea", "Oilseeds"]
+}
+
+# Current market trends and factors (simulated data)
+market_trends = {
+    "Rice": {"trend": "Increasing", "factors": ["Drought in key growing regions", "Increased export demand", "Lower production estimates"]},
+    "Wheat": {"trend": "Stable", "factors": ["Adequate monsoon in wheat belt", "Balanced supply-demand", "Government MSP support"]},
+    "Cotton": {"trend": "Decreasing", "factors": ["Higher production estimates", "Reduced international demand", "Increased competition"]},
+    "Sugarcane": {"trend": "Increasing", "factors": ["Higher ethanol demand", "Lower Brazilian production", "Government incentives"]},
+    "Maize": {"trend": "Stable", "factors": ["Increased feed demand", "Average production estimates", "Import restrictions"]},
+    "Pulses": {"trend": "Increasing", "factors": ["Lower buffer stocks", "Reduced imports", "Crop damage in key regions"]},
+    "Oilseeds": {"trend": "Increasing", "factors": ["Edible oil price rise", "Import restrictions", "Lower international production"]},
+    "Potato": {"trend": "Decreasing", "factors": ["Bumper harvest", "Storage issues", "Limited export opportunities"]},
+    "Onion": {"trend": "Volatile", "factors": ["Seasonal supply fluctuations", "Transportation challenges", "Storage constraints"]},
+    "Tomato": {"trend": "Increasing", "factors": ["Crop damage in key regions", "Higher demand", "Transport cost increases"]},
+}
+
+# Home page
+if menu == "Home":
     st.markdown("""
-    <style>
-    .big-font {
-        font-size:30px !important;
-        font-weight: bold;
-        color: #2c3e50;
-    }
-    .medium-font {
-        font-size:20px !important;
-        font-weight: bold;
-        color: #34495e;
-    }
-    .info-box {
-        background-color: #f1f8ff;
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #3498db;
-    }
-    .success-box {
-        background-color: #f0fff4;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #2ecc71;
-    }
-    .warning-box {
-        background-color: #fff9f0;
-        padding: 15px;
-        border-radius: 10px;
-        border-left: 5px solid #f39c12;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Application header
-    st.markdown('<p class="big-font">Advanced Crop Price Prediction System</p>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="info-box">
-    This system predicts crop prices based on various factors including weather quality, soil conditions,
-    crop type, and other parameters. It also compares the predicted prices with real-time market rates.
+    <div class='info-text'>
+    <p>Welcome to the Agricultural Crop Price Prediction System! This application helps farmers, traders, and policymakers predict crop prices based on historical data and current market factors.</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Create sidebar for navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Go to", ["Data Management", "Model Training", "Prediction", "Market Analysis", "About"])
+    st.markdown("<h2 class='sub-header'>How to use this application:</h2>", unsafe_allow_html=True)
     
-    # Data Management Page
-    if page == "Data Management":
-        st.markdown('<p class="medium-font">Data Management</p>', unsafe_allow_html=True)
-        
-        # Upload data
-        uploaded_file = st.file_uploader("Upload CSV data file", type=["csv"])
-        if uploaded_file is not None:
-            success, message = app.load_data(uploaded_file)
-            if success:
-                st.success(message)
-                
-                # Show data preview
-                st.subheader("Data Preview")
-                st.dataframe(app.data.head())
-                
-                # Show basic statistics
-                st.subheader("Data Statistics")
-                st.dataframe(app.data.describe())
-                
-                # Data visualization
-                st.subheader("Data Visualization")
-                
-                # Select columns to visualize
-                numeric_cols = app.data.select_dtypes(include=['int64', 'float64']).columns.tolist()
-                
-                if 'crop_price' in numeric_cols:
-                    # Correlation with crop price
-                    st.write("Correlation with Crop Price")
-                    corr = app.data[numeric_cols].corr()['crop_price'].sort_values(ascending=False)
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    corr.drop('crop_price').plot(kind='bar', ax=ax)
-                    plt.title('Correlation with Crop Price')
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    
-                    # Distribution of crop prices
-                    st.write("Distribution of Crop Prices")
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    sns.histplot(app.data['crop_price'], kde=True, ax=ax)
-                    plt.title('Distribution of Crop Prices')
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                
-                # Missing values information
-                st.subheader("Missing Values Information")
-                missing = app.data.isnull().sum()
-                if missing.sum() > 0:
-                    st.dataframe(missing[missing > 0])
-                else:
-                    st.write("No missing values found in the dataset.")
-                
-                # Data preparation options
-                st.subheader("Data Preparation")
-                if st.checkbox("Handle missing values automatically"):
-                    # Handle numeric missing values with median
-                    for col in app.data.select_dtypes(include=['int64', 'float64']).columns:
-                        app.data[col].fillna(app.data[col].median(), inplace=True)
-                    
-                    # Handle categorical missing values with mode
-                    for col in app.data.select_dtypes(include=['object']).columns:
-                        app.data[col].fillna(app.data[col].mode()[0], inplace=True)
-                    
-                    st.success("Missing values handled successfully!")
-            else:
-                st.error(message)
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        <ol>
+        <li><strong>Data Exploration:</strong> Upload and analyze your agricultural price dataset</li>
+        <li><strong>Model Training:</strong> Train a machine learning model on your data</li>
+        <li><strong>Price Prediction:</strong> Get price predictions for various crops</li>
+        <li><strong>Market Insights:</strong> View current market trends and factors</li>
+        </ol>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.image("https://wallpaperaccess.com/full/3543885.jpg", width=400, caption="Crop Price Prediction Process")
+    
+    st.info("Start by uploading your dataset in the Data Exploration section.")
 
-    # Model Training Page
-    elif page == "Model Training":
-        st.markdown('<p class="medium-font">Model Training</p>', unsafe_allow_html=True)
+# Data Exploration
+elif menu == "Data Exploration":
+    st.markdown("<h2 class='sub-header'>Data Exploration</h2>", unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Upload your agricultural price dataset (CSV or Excel)", type=["csv", "xlsx", "xls"])
+    
+    if uploaded_file is not None:
+        df = load_data(uploaded_file)
+        if df is not None:
+            st.session_state['data'] = df
+            st.success(f"Dataset loaded successfully with {df.shape[0]} rows and {df.shape[1]} columns!")
+            
+            st.markdown("<h3>Data Preview</h3>", unsafe_allow_html=True)
+            st.dataframe(df.head())
+            
+            st.markdown("<h3>Data Summary</h3>", unsafe_allow_html=True)
+            st.write(df.describe())
+            
+            st.markdown("<h3>Check for Missing Values</h3>", unsafe_allow_html=True)
+            missing_values = df.isnull().sum()
+            st.write(missing_values)
+            
+            if missing_values.sum() > 0:
+                st.warning("Your dataset contains missing values. Consider handling them before model training.")
+            
+            # Simple visualization
+            st.markdown("<h3>Data Visualization</h3>", unsafe_allow_html=True)
+            
+            if 'Price' in df.columns:
+                fig, ax = plt.subplots(figsize=(10, 6))
+                sns.histplot(df['Price'], kde=True, ax=ax)
+                plt.title('Distribution of Crop Prices')
+                plt.xlabel('Price')
+                plt.ylabel('Frequency')
+                st.pyplot(fig)
+                
+                # Show price trends if time-related column exists
+                time_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['date', 'month', 'year', 'time'])]
+                
+                if time_cols:
+                    st.markdown("<h3>Price Trends Over Time</h3>", unsafe_allow_html=True)
+                    time_col = time_cols[0]
+                    
+                    if 'Crop' in df.columns:
+                        crops = df['Crop'].unique()
+                        selected_crops = st.multiselect('Select crops to visualize', options=crops, default=crops[:3] if len(crops) > 3 else crops)
+                        
+                        if selected_crops:
+                            fig, ax = plt.subplots(figsize=(12, 6))
+                            for crop in selected_crops:
+                                crop_data = df[df['Crop'] == crop]
+                                ax.plot(crop_data[time_col], crop_data['Price'], label=crop)
+                            
+                            plt.title('Price Trends by Crop')
+                            plt.xlabel(time_col)
+                            plt.ylabel('Price')
+                            plt.legend()
+                            plt.xticks(rotation=45)
+                            plt.tight_layout()
+                            st.pyplot(fig)
+    else:
+        st.info("Please upload a dataset to begin exploration.")
         
-        if app.data is None:
-            st.warning("Please load data first in the Data Management section.")
+        # Show sample dataset format
+        st.markdown("<h3>Expected Dataset Format</h3>", unsafe_allow_html=True)
+        sample_data = {
+            'State': ['Maharashtra', 'Punjab', 'Karnataka', 'Tamil Nadu', 'Gujarat'],
+            'District': ['Pune', 'Ludhiana', 'Mysore', 'Coimbatore', 'Ahmedabad'],
+            'Market': ['Pune Mkt', 'Ludhiana Mkt', 'Mysore Mkt', 'Coimbatore Mkt', 'Ahmedabad Mkt'],
+            'Crop': ['Wheat', 'Rice', 'Ragi', 'Sugarcane', 'Cotton'],
+            'Variety': ['Common', 'Basmati', 'Local', 'Co-86032', 'Long Staple'],
+            'Date': ['2024-01-15', '2024-01-16', '2024-01-17', '2024-01-18', '2024-01-19'],
+            'Price': [2200, 3500, 1800, 310, 6500],
+            'Rainfall': [120, 95, 85, 110, 45],
+            'Temperature': [28, 32, 30, 33, 36],
+            'Soil_Moisture': [75, 65, 60, 70, 50]
+        }
+        st.dataframe(pd.DataFrame(sample_data))
+
+# Model Training
+elif menu == "Model Training":
+    st.markdown("<h2 class='sub-header'>Model Training</h2>", unsafe_allow_html=True)
+    
+    if 'data' in st.session_state:
+        df = st.session_state['data']
+        
+        st.markdown("<h3>Feature Selection</h3>", unsafe_allow_html=True)
+        
+        # Identify numeric and categorical columns
+        numeric_cols = df.select_dtypes(include=['int64', 'float64']).columns.tolist()
+        categorical_cols = df.select_dtypes(include=['object']).columns.tolist()
+        
+        # Select target variable
+        if 'Price' in numeric_cols:
+            target_col = 'Price'
         else:
-            # Model parameters
-            st.subheader("Model Parameters")
-            test_size = st.slider("Test Size (%)", 10, 50, 20) / 100
-            random_state = st.number_input("Random State", 0, 100, 42)
+            target_col = st.selectbox("Select target variable (price column):", numeric_cols)
+        
+        # Select features
+        feature_cols = st.multiselect(
+            "Select features for the model:",
+            options=[col for col in df.columns if col != target_col],
+            default=[col for col in numeric_cols if col != target_col]
+        )
+        
+        if not feature_cols:
+            st.warning("Please select at least one feature for training.")
+        else:
+            # Handle categorical features
+            categorical_features = [col for col in feature_cols if col in categorical_cols]
+            if categorical_features:
+                st.write("Categorical features will be encoded:")
+                st.write(categorical_features)
+                
+                # One-hot encode categorical features
+                df_encoded = pd.get_dummies(df, columns=categorical_features, drop_first=True)
+                
+                # Update feature columns to include encoded features
+                feature_cols = [col for col in df_encoded.columns if col != target_col and col in df_encoded.columns]
+            else:
+                df_encoded = df.copy()
+            
+            # Prepare data for training
+            X = df_encoded[feature_cols]
+            y = df_encoded[target_col]
+            
+            # Train-test split
+            test_size = st.slider("Test size (%):", 10, 40, 20) / 100
             
             # Train model button
             if st.button("Train Model"):
-                with st.spinner("Training model..."):
-                    success, result = app.train_model(test_size, random_state)
-                    
-                    if success:
+                with st.spinner("Training model... This may take a moment."):
+                    try:
+                        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+                        
+                        model = train_model(X_train, y_train)
+                        
+                        # Make predictions
+                        y_pred = model.predict(X_test)
+                        
+                        # Evaluate model
+                        mse = mean_squared_error(y_test, y_pred)
+                        rmse = np.sqrt(mse)
+                        r2 = r2_score(y_test, y_pred)
+                        
+                        # Save model and feature list
+                        st.session_state['model'] = model
+                        st.session_state['features'] = feature_cols
+                        st.session_state['target'] = target_col
+                        st.session_state['categorical_features'] = categorical_features
+                        
+                        # Display metrics
                         st.success("Model trained successfully!")
                         
-                        # Show model metrics
-                        st.subheader("Model Performance")
-                        metrics = result["metrics"]
-                        col1, col2 = st.columns(2)
-                        col1.metric("Mean Squared Error", f"{metrics['MSE']:.4f}")
-                        col2.metric("R-squared Score", f"{metrics['R-squared']:.4f}")
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Mean Squared Error", f"{mse:.2f}")
+                        col2.metric("Root Mean Squared Error", f"{rmse:.2f}")
+                        col3.metric("R² Score", f"{r2:.2f}")
                         
                         # Feature importance
-                        st.subheader("Feature Importance")
-                        success, importance = app.analyze_factors(None)
-                        if success:
-                            # Plot top 10 features
-                            fig, ax = plt.subplots(figsize=(10, 6))
-                            top_features = importance.head(10)
-                            sns.barplot(x='Importance', y='Feature', data=top_features, ax=ax)
-                            plt.title('Top 10 Most Important Features')
-                            plt.tight_layout()
-                            st.pyplot(fig)
+                        st.markdown("<h3>Feature Importance</h3>", unsafe_allow_html=True)
+                        feature_importance = pd.DataFrame({
+                            'Feature': feature_cols,
+                            'Importance': model.feature_importances_
+                        }).sort_values('Importance', ascending=False)
                         
-                        # Save model option
-                        if st.button("Save Trained Model"):
-                            success, message = app.save_model()
-                            if success:
-                                st.success(message)
-                            else:
-                                st.error(message)
-                    else:
-                        st.error(result)
-            
-            # Load model option
-            st.subheader("Or Load Existing Model")
-            model_file = st.file_uploader("Upload model file", type=["pkl"])
-            if model_file is not None:
-                # Save uploaded model to temp file
-                with open("temp_model.pkl", "wb") as f:
-                    f.write(model_file.getbuffer())
-                
-                # Load the model
-                success, message = app.load_model("temp_model.pkl")
-                if success:
-                    st.success(message)
-                else:
-                    st.error(message)
-
-    # Prediction Page
-    elif page == "Prediction":
-        st.markdown('<p class="medium-font">Crop Price Prediction</p>', unsafe_allow_html=True)
-        
-        if app.model is None:
-            st.warning("Please train or load a model first.")
-        else:
-            st.markdown("""
-            <div class="info-box">
-            Enter the crop details and environmental factors to predict the price.
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Create tabs for different input methods
-            tab1, tab2 = st.tabs(["Form Input", "CSV Input"])
-            
-            with tab1:
-                # Get column names from the trained model
-                try:
-                    # Try to get feature names from the model
-                    features = app.data.drop('crop_price', axis=1).columns.tolist()
-                    
-                    # Create dynamic form based on features
-                    st.subheader("Enter Crop Details")
-                    
-                    # Organize features into categories for better UI
-                    soil_features = [f for f in features if 'soil' in f.lower()]
-                    weather_features = [f for f in features if any(w in f.lower() for w in ['temp', 'rain', 'humid', 'weather'])]
-                    crop_features = [f for f in features if 'crop' in f.lower()]
-                    other_features = [f for f in features if f not in soil_features + weather_features + crop_features]
-                    
-                    # Create form sections
-                    col1, col2 = st.columns(2)
-                    
-                    # Input dictionary
-                    input_data = {}
-                    
-                    # Soil features
-                    with col1:
-                        st.write("Soil Parameters")
-                        for feature in soil_features:
-                            if app.data[feature].dtype == 'object':
-                                input_data[feature] = st.selectbox(feature, options=app.data[feature].unique())
-                            else:
-                                input_data[feature] = st.number_input(feature, 
-                                                                   value=float(app.data[feature].mean()),
-                                                                   step=0.1)
-                    
-                    # Weather features
-                    with col2:
-                        st.write("Weather Parameters")
-                        for feature in weather_features:
-                            if app.data[feature].dtype == 'object':
-                                input_data[feature] = st.selectbox(feature, options=app.data[feature].unique())
-                            else:
-                                input_data[feature] = st.number_input(feature, 
-                                                                   value=float(app.data[feature].mean()),
-                                                                   step=0.1)
-                    
-                    # Crop features
-                    st.write("Crop Information")
-                    cols = st.columns(min(3, len(crop_features)))
-                    for i, feature in enumerate(crop_features):
-                        with cols[i % min(3, len(crop_features))]:
-                            if app.data[feature].dtype == 'object':
-                                input_data[feature] = st.selectbox(feature, options=app.data[feature].unique())
-                            else:
-                                input_data[feature] = st.number_input(feature, 
-                                                                   value=float(app.data[feature].mean()),
-                                                                   step=0.1)
-                    
-                    # Other features
-                    if other_features:
-                        st.write("Other Parameters")
-                        cols = st.columns(min(3, len(other_features)))
-                        for i, feature in enumerate(other_features):
-                            with cols[i % min(3, len(other_features))]:
-                                if app.data[feature].dtype == 'object':
-                                    input_data[feature] = st.selectbox(feature, options=app.data[feature].unique())
-                                else:
-                                    input_data[feature] = st.number_input(feature, 
-                                                                       value=float(app.data[feature].mean()),
-                                                                       step=0.1)
-                    
-                    # Additional parameters for market comparison
-                    st.subheader("Market Comparison")
-                    crop_name = st.text_input("Crop Name for Market Comparison", "Rice")
-                    location = st.text_input("Location/State", "Punjab")
-                    
-                    # Predict button
-                    if st.button("Predict Price"):
-                        # Predict with model
-                        success, predicted_price = app.predict_price(input_data)
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        sns.barplot(x='Importance', y='Feature', data=feature_importance.head(10), ax=ax)
+                        plt.title('Top 10 Feature Importance')
+                        plt.tight_layout()
+                        st.pyplot(fig)
                         
-                        if success:
-                            # Get market price
-                            market_success, market_data = app.get_market_price(crop_name, location)
-                            
-                            if market_success:
-                                market_price = market_data["current_price"]
-                                
-                                # Display results
-                                st.subheader("Prediction Results")
-                                
-                                # Create columns for results
-                                col1, col2 = st.columns(2)
-                                
-                                with col1:
-                                    st.markdown(f"""
-                                    <div class="success-box">
-                                    <h3>Predicted Price:</h3>
-                                    <h2>₹{predicted_price:.2f} per kg</h2>
-                                    <p>Based on the provided parameters</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                
-                                with col2:
-                                    st.markdown(f"""
-                                    <div class="warning-box">
-                                    <h3>Current Market Price:</h3>
-                                    <h2>₹{market_price:.2f} per kg</h2>
-                                    <p>Source: Market data as of {market_data["timestamp"]}</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                
-                                # Price comparison visualization
-                                st.subheader("Price Comparison")
-                                fig = app.visualize_predictions(predicted_price, market_price, crop_name)
-                                st.pyplot(fig)
-                                
-                                # Insights
-                                diff = predicted_price - market_price
-                                diff_percent = (diff / market_price) * 100
-                                
-                                st.subheader("Analysis Insights")
-                                if diff > 0 and diff_percent > 10:
-                                    st.markdown("""
-                                    <div class="success-box">
-                                    <h3>Favorable Selling Conditions</h3>
-                                    <p>The predicted price is significantly higher than the current market price. 
-                                    Consider holding your crop if possible until market conditions improve to match prediction.</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                elif diff < 0 and abs(diff_percent) > 10:
-                                    st.markdown("""
-                                    <div class="warning-box">
-                                    <h3>Challenging Market Conditions</h3>
-                                    <p>The predicted price is significantly lower than the current market price.
-                                    Consider selling soon as prices may decline based on prediction factors.</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                else:
-                                    st.markdown("""
-                                    <div class="info-box">
-                                    <h3>Stable Market Conditions</h3>
-                                    <p>The predicted price is close to the current market price.
-                                    Market conditions appear stable for this crop.</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                
-                                # Factor analysis
-                                st.subheader("Factor Influence Analysis")
-                                success, importance = app.analyze_factors(input_data)
-                                if success:
-                                    # Show top 5 factors
-                                    st.write("Top factors influencing this prediction:")
-                                    st.dataframe(importance.head(5))
-                            else:
-                                st.error(f"Error getting market price: {market_data}")
-                        else:
-                                st.error(f"Error making prediction: {predicted_price}")
-                
-                except Exception as e:
-                    st.error(f"Error creating prediction form: {str(e)}")
-                    st.write("Please make sure you've trained a model with appropriate data first.")
-            
-            with tab2:
-                st.subheader("Upload CSV for Batch Prediction")
-                batch_file = st.file_uploader("Upload CSV with crop parameters", type=["csv"])
-                
-                if batch_file is not None:
-                    try:
-                        # Load batch data
-                        batch_data = pd.read_csv(batch_file)
-                        st.write("Data Preview:")
-                        st.dataframe(batch_data.head())
+                        # Actual vs Predicted
+                        st.markdown("<h3>Actual vs Predicted Prices</h3>", unsafe_allow_html=True)
+                        fig, ax = plt.subplots(figsize=(10, 6))
+                        plt.scatter(y_test, y_pred, alpha=0.5)
+                        plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--')
+                        plt.xlabel('Actual Price')
+                        plt.ylabel('Predicted Price')
+                        plt.title('Actual vs Predicted Prices')
+                        st.pyplot(fig)
                         
-                        # Check if required columns exist
-                        if set(app.data.drop('crop_price', axis=1).columns).issubset(set(batch_data.columns)):
-                            if st.button("Run Batch Prediction"):
-                                # Make predictions
-                                predictions = []
-                                for _, row in batch_data.iterrows():
-                                    success, pred = app.predict_price(row)
-                                    if success:
-                                        predictions.append(pred)
-                                    else:
-                                        predictions.append(None)
-                                
-                                # Add predictions to data
-                                batch_data['predicted_price'] = predictions
-                                
-                                # Show results
-                                st.write("Prediction Results:")
-                                st.dataframe(batch_data)
-                                
-                                # Download option
-                                st.download_button(
-                                    "Download Results as CSV",
-                                    batch_data.to_csv(index=False).encode('utf-8'),
-                                    "crop_predictions.csv",
-                                    "text/csv",
-                                    key='download-csv'
-                                )
-                                
-                                # Visualize batch predictions
-                                st.subheader("Batch Prediction Analysis")
-                                
-                                # Prediction distribution
-                                fig, ax = plt.subplots(figsize=(10, 6))
-                                sns.histplot(batch_data['predicted_price'], kde=True, ax=ax)
-                                plt.title('Distribution of Predicted Prices')
-                                plt.tight_layout()
-                                st.pyplot(fig)
-                        else:
-                            st.error("The uploaded CSV doesn't contain all required columns for prediction.")
                     except Exception as e:
-                        st.error(f"Error processing batch file: {str(e)}")
+                        st.error(f"Error training model: {e}")
+    else:
+        st.warning("Please upload and explore a dataset first in the Data Exploration section.")
 
-    # Market Analysis Page
-    elif page == "Market Analysis":
-        st.markdown('<p class="medium-font">Market Price Analysis</p>', unsafe_allow_html=True)
+# Price Prediction
+elif menu == "Price Prediction":
+    st.markdown("<h2 class='sub-header'>Crop Price Prediction</h2>", unsafe_allow_html=True)
+    
+    if 'model' in st.session_state:
+        # Get state and crop selection
+        state = st.selectbox("Select State:", list(states_dict.keys()))
+        crop = st.selectbox("Select Crop:", states_dict[state])
         
-        st.markdown("""
-        <div class="info-box">
-        This section provides analysis of market prices and trends for different crops across locations.
-        </div>
-        """, unsafe_allow_html=True)
+        # Get other features based on the model requirements
+        feature_inputs = {}
         
-        # Crop selection
-        crop_options = ["Rice", "Wheat", "Maize", "Cotton", "Sugarcane"]
-        selected_crop = st.selectbox("Select Crop", crop_options)
+        st.markdown("<h3>Enter Feature Values:</h3>", unsafe_allow_html=True)
         
-        # Location selection
-        location_options = ["Punjab", "Haryana", "Uttar Pradesh", "Maharashtra", "Karnataka"]
-        selected_location = st.selectbox("Select Location", location_options)
+        col1, col2 = st.columns(2)
         
-        # Time period
-        time_period = st.selectbox("Select Time Period", ["Last Week", "Last Month", "Last 3 Months", "Last Year"])
+        with col1:
+            # Standard features that most models would use
+            district = st.text_input("District:", "Sample District")
+            market = st.text_input("Market:", "Sample Market")
+            variety = st.text_input("Variety:", "Common")
+            rainfall = st.slider("Rainfall (mm):", 0, 500, 100)
+            temperature = st.slider("Temperature (°C):", 10, 50, 30)
         
-        # Generate simulated data for demonstration
-        if st.button("Analyze Market Trends"):
-            st.write(f"Analyzing {selected_crop} prices in {selected_location} for {time_period.lower()}...")
+        with col2:
+            soil_moisture = st.slider("Soil Moisture (%):", 0, 100, 60)
+            humidity = st.slider("Humidity (%):", 0, 100, 65)
             
-            # Create simulated time series data
-            np.random.seed(42)
+            # Get current date and allow selection of prediction date
+            current_date = datetime.now()
+            prediction_date = st.date_input("Prediction Date:", current_date)
             
-            # Set date range based on selection
-            if time_period == "Last Week":
-                dates = pd.date_range(end=datetime.now(), periods=7)
-            elif time_period == "Last Month":
-                dates = pd.date_range(end=datetime.now(), periods=30)
-            elif time_period == "Last 3 Months":
-                dates = pd.date_range(end=datetime.now(), periods=90)
-            else:  # Last Year
-                dates = pd.date_range(end=datetime.now(), periods=365)
+            # Season based on month
+            months = {1: "Winter", 2: "Winter", 3: "Spring", 4: "Spring", 5: "Spring", 
+                     6: "Summer", 7: "Summer", 8: "Summer", 9: "Fall", 10: "Fall", 11: "Fall", 12: "Winter"}
+            season = months[prediction_date.month]
+        
+        # Prepare input features
+        feature_inputs = {
+            'State': state,
+            'District': district,
+            'Market': market,
+            'Crop': crop,
+            'Variety': variety,
+            'Date': prediction_date.strftime('%Y-%m-%d'),
+            'Rainfall': rainfall,
+            'Temperature': temperature,
+            'Soil_Moisture': soil_moisture,
+            'Humidity': humidity,
+            'Season': season
+        }
+        
+        # Display current market trends
+        if crop in market_trends:
+            st.markdown("<h3>Current Market Trends:</h3>", unsafe_allow_html=True)
             
-            # Generate price data with trend and seasonality
-            base_price = 40  # Base price for rice
-            if selected_crop == "Wheat":
-                base_price = 30
-            elif selected_crop == "Maize":
-                base_price = 20
-            elif selected_crop == "Cotton":
-                base_price = 60
-            elif selected_crop == "Sugarcane":
-                base_price = 25
+            trend_info = market_trends[crop]
             
-            # Add location factor
-            location_factor = {
-                "Punjab": 1.1,
-                "Haryana": 1.05,
-                "Uttar Pradesh": 0.95,
-                "Maharashtra": 1.0,
-                "Karnataka": 0.9
-            }
+            col1, col2 = st.columns(2)
             
-            # Generate time series with trend and seasonality
-            trend = np.linspace(0, 5, len(dates)) if len(dates) > 30 else np.zeros(len(dates))
-            seasonality = 2 * np.sin(np.linspace(0, 2 * np.pi, len(dates)))
-            noise = np.random.normal(0, 1, len(dates))
+            with col1:
+                if trend_info["trend"] == "Increasing":
+                    st.markdown(f"<p>🔼 <strong>Trend:</strong> {trend_info['trend']}</p>", unsafe_allow_html=True)
+                elif trend_info["trend"] == "Decreasing":
+                    st.markdown(f"<p>🔽 <strong>Trend:</strong> {trend_info['trend']}</p>", unsafe_allow_html=True)
+                elif trend_info["trend"] == "Volatile":
+                    st.markdown(f"<p>↕️ <strong>Trend:</strong> {trend_info['trend']}</p>", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"<p>➡️ <strong>Trend:</strong> {trend_info['trend']}</p>", unsafe_allow_html=True)
             
-            prices = base_price * location_factor[selected_location] + trend + seasonality + noise
-            
-            # Create DataFrame
-            market_data = pd.DataFrame({
-                'Date': dates,
-                'Price': prices
-            })
-            
-            # Show price trend
-            st.subheader(f"{selected_crop} Price Trend in {selected_location}")
-            
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(market_data['Date'], market_data['Price'], 'b-', linewidth=2)
-            ax.set_title(f"{selected_crop} Price Trend in {selected_location}")
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Price (₹ per kg)')
-            ax.grid(True, linestyle='--', alpha=0.7)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(fig)
-            
-            # Show statistics
-            st.subheader("Price Statistics")
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Current Price", f"₹{market_data['Price'].iloc[-1]:.2f}")
-            col2.metric("Average Price", f"₹{market_data['Price'].mean():.2f}")
-            col3.metric("Min Price", f"₹{market_data['Price'].min():.2f}")
-            col4.metric("Max Price", f"₹{market_data['Price'].max():.2f}")
-            
-            # Calculate price change
-            price_change = market_data['Price'].iloc[-1] - market_data['Price'].iloc[0]
-            price_change_percent = (price_change / market_data['Price'].iloc[0]) * 100
-            
-            # Show price change with indicator
-            st.metric(
-                "Price Change", 
-                f"₹{price_change:.2f}", 
-                f"{price_change_percent:.2f}%",
-                delta_color="normal" if price_change >= 0 else "inverse"
-            )
-            
-            # Show moving average
-            st.subheader("Price Trend Analysis")
-            window = min(7, len(market_data) // 3)
-            market_data['MA'] = market_data['Price'].rolling(window=window).mean()
-            
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(market_data['Date'], market_data['Price'], 'b-', label='Daily Price')
-            ax.plot(market_data['Date'], market_data['MA'], 'r-', label=f'{window}-Day Moving Average')
-            ax.set_title(f"{selected_crop} Price Trend with Moving Average")
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Price (₹ per kg)')
-            ax.legend()
-            ax.grid(True, linestyle='--', alpha=0.7)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(fig)
-            
-            # Price volatility
-            st.subheader("Price Volatility")
-            # Calculate daily returns
-            if len(market_data) > 1:
-                market_data['Return'] = market_data['Price'].pct_change() * 100
+            with col2:
+                st.markdown("<p><strong>Influencing Factors:</strong></p>", unsafe_allow_html=True)
+                for factor in trend_info["factors"]:
+                    st.markdown(f"<p>• {factor}</p>", unsafe_allow_html=True)
+        
+        # Make prediction button
+        if st.button("Predict Price"):
+            try:
+                # Create a dataframe from input features
+                input_df = pd.DataFrame([feature_inputs])
                 
+                # Handle categorical features (similar to training process)
+                categorical_features = st.session_state.get('categorical_features', [])
+                if categorical_features:
+                    input_df = pd.get_dummies(input_df, columns=categorical_features, drop_first=True)
+                
+                # Ensure all required features are present
+                required_features = st.session_state['features']
+                for feature in required_features:
+                    if feature not in input_df.columns:
+                        input_df[feature] = 0  # Add missing dummy variables
+                
+                # Select only the features used in the model
+                input_features = input_df[required_features]
+                
+                # Make prediction
+                prediction = st.session_state['model'].predict(input_features)[0]
+                
+                # Apply market trend adjustment
+                if crop in market_trends:
+                    trend = market_trends[crop]["trend"]
+                    if trend == "Increasing":
+                        adjustment = 1.05  # 5% increase
+                    elif trend == "Decreasing":
+                        adjustment = 0.95  # 5% decrease
+                    elif trend == "Volatile":
+                        adjustment = np.random.uniform(0.97, 1.03)  # Random adjustment
+                    else:  # Stable
+                        adjustment = 1.0
+                    
+                    adjusted_prediction = prediction * adjustment
+                else:
+                    adjusted_prediction = prediction
+                
+                # Display prediction
+                st.success(f"Predicted Price: ₹{adjusted_prediction:.2f} per quintal")
+                
+                # Show price forecast for next few days
+                st.markdown("<h3>Price Forecast (Next 7 Days):</h3>", unsafe_allow_html=True)
+                
+                # Generate forecasted prices with some randomness
+                dates = [(prediction_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(1, 8)]
+                
+                if crop in market_trends:
+                    trend = market_trends[crop]["trend"]
+                    if trend == "Increasing":
+                        daily_changes = [np.random.uniform(0.0, 0.02) for _ in range(7)]  # 0-2% daily increase
+                    elif trend == "Decreasing":
+                        daily_changes = [np.random.uniform(-0.02, 0.0) for _ in range(7)]  # 0-2% daily decrease
+                    elif trend == "Volatile":
+                        daily_changes = [np.random.uniform(-0.03, 0.03) for _ in range(7)]  # -3% to +3% daily change
+                    else:  # Stable
+                        daily_changes = [np.random.uniform(-0.005, 0.005) for _ in range(7)]  # -0.5% to +0.5% daily change
+                else:
+                    daily_changes = [np.random.uniform(-0.01, 0.01) for _ in range(7)]
+                
+                # Calculate cumulative changes
+                cumulative_changes = [1.0]
+                for change in daily_changes:
+                    cumulative_changes.append(cumulative_changes[-1] * (1 + change))
+                cumulative_changes = cumulative_changes[1:]
+                
+                # Apply changes to prediction
+                forecasted_prices = [adjusted_prediction * change for change in cumulative_changes]
+                
+                # Create dataframe for forecasted prices
+                forecast_df = pd.DataFrame({
+                    'Date': dates,
+                    'Forecasted Price': forecasted_prices
+                })
+                
+                # Display as table
+                st.dataframe(forecast_df)
+                
+                # Display as chart
                 fig, ax = plt.subplots(figsize=(10, 6))
-                ax.plot(market_data['Date'][1:], market_data['Return'][1:], 'g-')
-                ax.axhline(y=0, color='r', linestyle='-', alpha=0.3)
-                ax.set_title(f"{selected_crop} Daily Price Changes")
-                ax.set_xlabel('Date')
-                ax.set_ylabel('Daily Change (%)')
-                ax.grid(True, linestyle='--', alpha=0.7)
+                plt.plot(forecast_df['Date'], forecast_df['Forecasted Price'], marker='o')
+                plt.axhline(y=adjusted_prediction, color='r', linestyle='--', label='Current Prediction')
+                plt.xlabel('Date')
+                plt.ylabel('Forecasted Price (₹)')
+                plt.title(f'7-Day Price Forecast for {crop} in {state}')
                 plt.xticks(rotation=45)
+                plt.legend()
                 plt.tight_layout()
                 st.pyplot(fig)
                 
-                # Volatility metrics
-                volatility = market_data['Return'][1:].std()
-                st.write(f"**Price Volatility (Standard Deviation of Returns):** {volatility:.2f}%")
-                
-                if volatility < 1:
-                    st.write("🟢 Low Volatility: Prices are relatively stable.")
-                elif volatility < 3:
-                    st.write("🟡 Moderate Volatility: Some price fluctuations, but generally predictable.")
-                else:
-                    st.write("🔴 High Volatility: Significant price fluctuations, market conditions unpredictable.")
+            except Exception as e:
+                st.error(f"Error making prediction: {e}")
+    else:
+        st.warning("Please train a model first in the Model Training section.")
+
+# Market Insights
+elif menu == "Market Insights":
+    st.markdown("<h2 class='sub-header'>Market Insights</h2>", unsafe_allow_html=True)
+    
+    # Display current market trends for all crops
+    st.markdown("<h3>Current Market Trends by Crop</h3>", unsafe_allow_html=True)
+    
+    # Create a dataframe for better display
+    trends_data = []
+    for crop, info in market_trends.items():
+        trends_data.append({
+            "Crop": crop,
+            "Trend": info["trend"],
+            "Key Factors": ", ".join(info["factors"])
+        })
+    
+    trends_df = pd.DataFrame(trends_data)
+    
+    # Add trend indicators
+    def color_trends(val):
+        if val == "Increasing":
+            return 'background-color: rgba(76, 175, 80, 0.2)'
+        elif val == "Decreasing":
+            return 'background-color: rgba(244, 67, 54, 0.2)'
+        elif val == "Volatile":
+            return 'background-color: rgba(255, 152, 0, 0.2)'
+        else:
+            return 'background-color: rgba(33, 150, 243, 0.2)'
+    
+    # Display styled dataframe
+    st.dataframe(trends_df.style.applymap(color_trends, subset=['Trend']))
+    
+    # Regional highlights
+    st.markdown("<h3>Regional Market Highlights</h3>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        selected_state = st.selectbox("Select a state:", list(states_dict.keys()))
+        
+    with col2:
+        selected_crop = st.selectbox("Select a crop:", states_dict[selected_state])
+    
+    # Generate some regional insights (simulated data)
+    regional_insights = {
+        "Production": f"{np.random.randint(80, 120)}% of last year",
+        "Demand": f"{np.random.randint(90, 110)}% of last year",
+        "Major Markets": ", ".join(np.random.choice(["Local", "Export", "Processing", "Urban Centers"], size=2, replace=False)),
+        "Price Trend": np.random.choice(["Rising", "Falling", "Stable"]),
+        "MSP Status": np.random.choice(["Above MSP", "Below MSP", "At MSP"]),
+        "Storage Availability": f"{np.random.randint(60, 95)}%"
+    }
+    
+    # Display insights
+    st.markdown(f"<h4>Market Insights for {selected_crop} in {selected_state}</h4>", unsafe_allow_html=True)
+    
+    for key, value in regional_insights.items():
+        st.markdown(f"<p><strong>{key}:</strong> {value}</p>", unsafe_allow_html=True)
+    
+    # Recommendations based on insights
+    st.markdown("<h4>Recommendations:</h4>", unsafe_allow_html=True)
+    
+    if regional_insights["Price Trend"] == "Rising":
+        st.markdown("""
+        <ul>
+          <li>Consider holding stock for higher returns</li>
+          <li>Explore direct marketing to consumers</li>
+          <li>Monitor daily price movements closely</li>
+        </ul>
+        """, unsafe_allow_html=True)
+    elif regional_insights["Price Trend"] == "Falling":
+        st.markdown("""
+        <ul>
+          <li>Consider early selling to minimize losses</li>
+          <li>Explore value addition options</li>
+          <li>Look for government procurement programs</li>
+        </ul>
+        """, unsafe_allow_html=True)
+    else:  # Stable
+        st.markdown("""
+        <ul>
+          <li>Maintain regular selling schedule</li>
+          <li>Focus on quality improvement for better returns</li>
+          <li>Explore forward contracts with buyers</li>
+        </ul>
+        """, unsafe_allow_html=True)
+    
+    # News and updates section
+    st.markdown("<h3>Latest Agricultural News and Updates</h3>", unsafe_allow_html=True)
+    
+    # Simulated news
+    news_items = [
+        {
+            "title": "Government Announces New MSP for Kharif Crops",
+            "date": "April 15, 2025",
+            "summary": "The government has announced a 7-10% increase in the Minimum Support Price (MSP) for major kharif crops, including paddy, pulses, and oilseeds."
+        },
+        {
+            "title": "IMD Predicts Normal Monsoon This Year",
+            "date": "April 10, 2025",
+            "summary": "The Indian Meteorological Department (IMD) has predicted a normal monsoon season this year, bringing relief to farmers across the country."
+        },
+        {
+            "title": "Export Restrictions Lifted for Select Agricultural Commodities",
+            "date": "April 5, 2025",
+            "summary": "The government has lifted export restrictions on select agricultural commodities, opening up new market opportunities for farmers."
+        },
+        {
+            "title": f"Production of {selected_crop} Expected to Increase in {selected_state}",
+            "date": "April 1, 2025",
+            "summary": f"According to state agricultural department estimates, {selected_crop} production in {selected_state} is expected to increase by 15% this year due to favorable weather conditions."
+        }
+    ]
+    
+    # Display news items
+    for item in news_items:
+        with st.expander(f"{item['title']} ({item['date']})"):
+            st.write(item['summary'])
+
+# Footer
+st.markdown("""
+<hr>
+<div style="text-align: center; padding: 20px;">
+    <p>Agricultural Crop Price Prediction System | Developed with ❤️ for Farmers</p>
+    <p>© 2025 | For educational and informational purposes only</p>
+</div>
+""", unsafe_allow_html=True)
+
+# Add custom CSS for responsive design
+st.markdown("""
+<style>
+@media (max-width: 768px) {
+    .main-header {
+        font-size: 1.8rem;
+    }
+    .sub-header {
+        font-size: 1.4rem;
+    }
+}
+
+/* Improve button styling */
+.stButton>button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+
+.stButton>button:hover {
+    background-color: #45a049;
+}
+
+/* Improve metric styling */
+[data-testid="stMetricValue"] {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #1E88E5;
+}
+
+/* Improve dataframe styling */
+.dataframe {
+    font-size: 0.9rem;
+}
+
+/* Improve expander styling */
+.streamlit-expanderHeader {
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+/* Custom tooltip for help text */
+.tooltip {
+    position: relative;
+    display: inline-block;
+    border-bottom: 1px dotted black;
+    cursor: help;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 200px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# Helper functions for data preprocessing that can be used across the app
+def preprocess_data(df):
+    """Preprocess the dataset for model training"""
+    # Handle missing values
+    for col in df.select_dtypes(include=['int64', 'float64']).columns:
+        df[col].fillna(df[col].median(), inplace=True)
+    
+    for col in df.select_dtypes(include=['object']).columns:
+        df[col].fillna(df[col].mode()[0], inplace=True)
+    
+    # Convert date columns to datetime
+    date_cols = [col for col in df.columns if any(keyword in col.lower() for keyword in ['date', 'month', 'year', 'time'])]
+    for col in date_cols:
+        try:
+            df[col] = pd.to_datetime(df[col])
+            # Extract useful date features
+            df[f'{col}_month'] = df[col].dt.month
+            df[f'{col}_year'] = df[col].dt.year
+            df[f'{col}_day'] = df[col].dt.day
             
-            # Price forecast (simple)
-            st.subheader("Price Forecast (Next 7 Days)")
+            # Add season feature
+            df[f'{col}_season'] = df[col].dt.month.map({
+                1: 'Winter', 2: 'Winter', 3: 'Spring', 4: 'Spring', 5: 'Spring',
+                6: 'Summer', 7: 'Summer', 8: 'Summer', 9: 'Fall', 10: 'Fall', 11: 'Fall', 12: 'Winter'
+            })
+        except:
+            pass
+    
+    return df
+
+def get_model_performance_explanation(r2):
+    """Provide explanation of model performance based on R-squared value"""
+    if r2 >= 0.8:
+        return "Excellent model fit! The model explains most of the variation in crop prices."
+    elif r2 >= 0.6:
+        return "Good model fit. The model explains a significant portion of the price variation."
+    elif r2 >= 0.4:
+        return "Moderate model fit. Consider adding more features or trying different algorithms."
+    else:
+        return "Poor model fit. Consider collecting more data or exploring different modeling approaches."
+
+# Add error handling for prediction when features don't match
+def safe_predict(model, features, required_features):
+    """Safely make predictions ensuring all required features are present"""
+    missing_features = set(required_features) - set(features.columns)
+    extra_features = set(features.columns) - set(required_features)
+    
+    if missing_features:
+        # Add missing features with zeros
+        for feature in missing_features:
+            features[feature] = 0
+    
+    if extra_features:
+        # Remove extra features
+        features = features[required_features]
+    
+    # Ensure correct order of features
+    features = features[required_features]
+    
+    return model.predict(features)
+
+# Helper function to generate price forecasts
+def generate_price_forecast(base_price, days, trend, volatility=0.01):
+    """Generate forecasted prices based on trend and volatility"""
+    if trend == "Increasing":
+        daily_changes = [np.random.uniform(0.0, volatility * 2) for _ in range(days)]
+    elif trend == "Decreasing":
+        daily_changes = [np.random.uniform(-volatility * 2, 0.0) for _ in range(days)]
+    elif trend == "Volatile":
+        daily_changes = [np.random.uniform(-volatility * 3, volatility * 3) for _ in range(days)]
+    else:  # Stable
+        daily_changes = [np.random.uniform(-volatility / 2, volatility / 2) for _ in range(days)]
+    
+    # Calculate cumulative changes
+    cumulative_changes = [1.0]
+    for change in daily_changes:
+        cumulative_changes.append(cumulative_changes[-1] * (1 + change))
+    cumulative_changes = cumulative_changes[1:]
+    
+    # Apply changes to base price
+    forecasted_prices = [base_price * change for change in cumulative_changes]
+    
+    return forecasted_prices
+
+# Function to get seasonal price patterns
+def get_seasonal_patterns(crop):
+    """Return seasonal price patterns for different crops"""
+    patterns = {
+        "Rice": {
+            "Spring": "Moderate prices due to balanced supply",
+            "Summer": "Increasing prices as old stocks deplete",
+            "Fall": "Decreasing prices due to new harvest",
+            "Winter": "Stable to slightly increasing prices"
+        },
+        "Wheat": {
+            "Spring": "Decreasing prices due to harvest season",
+            "Summer": "Low prices during peak supply",
+            "Fall": "Gradually increasing prices",
+            "Winter": "Higher prices due to lower supply"
+        },
+        "Cotton": {
+            "Spring": "Moderate to high prices",
+            "Summer": "Decreasing prices as harvest approaches",
+            "Fall": "Low prices during peak harvest",
+            "Winter": "Gradually increasing prices"
+        },
+        "Sugarcane": {
+            "Spring": "Moderate prices",
+            "Summer": "Lower prices due to decreased demand",
+            "Fall": "Increasing prices as crushing season begins",
+            "Winter": "Peak prices during crushing season"
+        },
+        "Maize": {
+            "Spring": "Higher prices before new crop",
+            "Summer": "Decreasing prices as harvest begins",
+            "Fall": "Low prices during peak harvest",
+            "Winter": "Gradually increasing prices"
+        }
+    }
+    
+    # Default pattern for crops not in the dictionary
+    default_pattern = {
+        "Spring": "Prices vary based on supply and demand",
+        "Summer": "Prices vary based on supply and demand",
+        "Fall": "Prices vary based on supply and demand",
+        "Winter": "Prices vary based on supply and demand"
+    }
+    
+    return patterns.get(crop, default_pattern)
+
+# Function to get policy impacts on crop prices
+def get_policy_impacts():
+    """Return information about policy impacts on crop prices"""
+    return {
+        "MSP Increase": "Higher floor prices for farmers, potentially increasing market prices",
+        "Export Restrictions": "Lower demand leading to price decrease in domestic markets",
+        "Import Duties": "Higher prices due to restricted competition from imports",
+        "Direct Benefit Transfers": "Improved farmer income without direct impact on market prices",
+        "Storage Subsidies": "Enables farmers to hold stock, potentially stabilizing prices",
+        "Ethanol Blending": "Increased demand for sugarcane, potentially increasing prices"
+    }
+
+# Add this code if running the app directly
+if __name__ == "__main__":
+    # Set up logging
+    import logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+    logger.info("Agricultural Crop Price Prediction System started")
+    
+    # Check if model directory exists
+    if not os.path.exists("models"):
+        os.makedirs("models")
+        logger.info("Created models directory")
+    
+    # Add demo mode option in sidebar
+    if st.sidebar.checkbox("Enable Demo Mode", False):
+        logger.info("Demo mode enabled")
+        
+        # Load sample data if not already loaded
+        if 'data' not in st.session_state:
+            # Create sample data
+            np.random.seed(42)
             
-            # Generate forecast using simple linear regression
-            from sklearn.linear_model import LinearRegression
+            # Generate dates for past 3 years
+            start_date = datetime(2022, 1, 1)
+            dates = [start_date + timedelta(days=i) for i in range(365 * 3)]
+            dates_str = [date.strftime('%Y-%m-%d') for date in dates]
+            
+            # Generate sample states, districts, markets, crops
+            states = list(states_dict.keys())
+            sample_districts = ["District_" + str(i) for i in range(1, 21)]
+            sample_markets = ["Market_" + str(i) for i in range(1, 31)]
+            
+            # Flatten the crops list
+            all_crops = []
+            for crops in states_dict.values():
+                all_crops.extend(crops)
+            all_crops = list(set(all_crops))
+            
+            varieties = ["Common", "Premium", "Local", "Hybrid", "Traditional"]
+            
+            # Generate sample data
+            num_samples = 10000
+            sample_data = {
+                'State': np.random.choice(states, num_samples),
+                'District': np.random.choice(sample_districts, num_samples),
+                'Market': np.random.choice(sample_markets, num_samples),
+                'Crop': np.random.choice(all_crops, num_samples),
+                'Variety': np.random.choice(varieties, num_samples),
+                'Date': np.random.choice(dates_str, num_samples),
+                'Price': np.random.uniform(1000, 10000, num_samples),
+                'Rainfall': np.random.uniform(0, 500, num_samples),
+                'Temperature': np.random.uniform(10, 45, num_samples),
+                'Soil_Moisture': np.random.uniform(20, 90, num_samples),
+                'Humidity': np.random.uniform(30, 95, num_samples)
+            }
+            
+            # Create seasonal patterns
+            date_objects = pd.to_datetime(sample_data['Date'])
+            months = date_objects.dt.month
+            
+            # Add seasonal effect to prices
+            for i, (crop, month) in enumerate(zip(sample_data['Crop'], months)):
+                # Rice prices higher in summer
+                if crop == 'Rice' and month in [5, 6, 7, 8]:
+                    sample_data['Price'][i] *= np.random.uniform(1.1, 1.3)
+                # Wheat prices higher in winter
+                elif crop == 'Wheat' and month in [11, 12, 1, 2]:
+                    sample_data['Price'][i] *= np.random.uniform(1.1, 1.25)
+                # Cotton prices higher in winter
+                elif crop == 'Cotton' and month in [12, 1, 2]:
+                    sample_data['Price'][i] *= np.random.uniform(1.05, 1.2)
+            
+            # Create correlation between weather and prices
+            for i in range(num_samples):
+                # High rainfall generally reduces prices (oversupply)
+                if sample_data['Rainfall'][i] > 300:
+                    sample_data['Price'][i] *= np.random.uniform(0.8, 0.95)
+                # Extreme temperatures can raise prices (crop stress)
+                if sample_data['Temperature'][i] > 40:
+                    sample_data['Price'][i] *= np.random.uniform(1.1, 1.25)
+                # Low soil moisture raises prices (drought conditions)
+                if sample_data['Soil_Moisture'][i] < 30:
+                    sample_data['Price'][i] *= np.random.uniform(1.15, 1.3)
+            
+            # Create DataFrame
+            sample_df = pd.DataFrame(sample_data)
+            
+            # Add to session state
+            st.session_state['data'] = sample_df
+            logger.info("Sample data created and loaded into session state")
+            
+            # Train a demo model
+            features = ['Rainfall', 'Temperature', 'Soil_Moisture', 'Humidity']
+            target = 'Price'
             
             # Prepare data
-            X = np.array(range(len(market_data))).reshape(-1, 1)
-            y = market_data['Price'].values
+            X = sample_df[features]
+            y = sample_df[target]
             
-            # Fit model
-            model = LinearRegression()
-            model.fit(X, y)
+            # Train-test split
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
             
-            # Make future predictions
-            future_X = np.array(range(len(market_data), len(market_data) + 7)).reshape(-1, 1)
-            future_dates = pd.date_range(start=market_data['Date'].iloc[-1] + pd.Timedelta(days=1), periods=7)
-            future_prices = model.predict(future_X)
+            # Train model
+            model = train_model(X_train, y_train)
             
-            # Create future dataframe
-            future_data = pd.DataFrame({
-                'Date': future_dates,
-                'Predicted_Price': future_prices
-            })
+            # Save model to session state
+            st.session_state['model'] = model
+            st.session_state['features'] = features
+            st.session_state['target'] = target
+            st.session_state['categorical_features'] = []
             
-            # Plot actual + forecast
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(market_data['Date'], market_data['Price'], 'b-', label='Historical Price')
-            ax.plot(future_data['Date'], future_data['Predicted_Price'], 'r--', label='Forecasted Price')
-            ax.set_title(f"{selected_crop} Price Forecast")
-            ax.set_xlabel('Date')
-            ax.set_ylabel('Price (₹ per kg)')
-            ax.legend()
-            ax.grid(True, linestyle='--', alpha=0.7)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            st.pyplot(fig)
-            
-            # Market recommendations
-            st.subheader("Market Recommendations")
-            
-            last_price = market_data['Price'].iloc[-1]
-            forecast_price = future_data['Predicted_Price'].iloc[-1]
-            forecast_change = (forecast_price - last_price) / last_price * 100
-            
-            if forecast_change > 5:
-                st.markdown("""
-                <div class="success-box">
-                <h3>Hold Recommendation</h3>
-                <p>Prices are expected to rise in the coming days. Consider holding your crop for better returns.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            elif forecast_change < -5:
-                st.markdown("""
-                <div class="warning-box">
-                <h3>Sell Recommendation</h3>
-                <p>Prices are expected to decline in the coming days. Consider selling your crop soon.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div class="info-box">
-                <h3>Neutral Market</h3>
-                <p>Prices are expected to remain stable in the coming days. No immediate action required.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Compare with other locations
-            st.subheader("Price Comparison Across Locations")
-            
-            # Generate simulated data for comparison
-            comparison_data = []
-            for location in location_options:
-                loc_factor = location_factor[location]
-                current_price = market_data['Price'].iloc[-1] * loc_factor / location_factor[selected_location]
-                comparison_data.append({
-                    'Location': location,
-                    'Current Price': current_price
-                })
-            
-            comparison_df = pd.DataFrame(comparison_data)
-            
-            # Bar chart visualization
-            fig, ax = plt.subplots(figsize=(10, 6))
-            bars = ax.bar(comparison_df['Location'], comparison_df['Current Price'], color='skyblue')
-            
-            # Highlight selected location
-            selected_idx = comparison_df[comparison_df['Location'] == selected_location].index[0]
-            bars[selected_idx].set_color('orange')
-            
-            ax.set_title(f"{selected_crop} Price Comparison Across Locations")
-            ax.set_xlabel('Location')
-            ax.set_ylabel('Price (₹ per kg)')
-            ax.grid(axis='y', linestyle='--', alpha=0.7)
-            
-            # Add data labels
-            for bar in bars:
-                height = bar.get_height()
-                ax.annotate(f'₹{height:.2f}',
-                            xy=(bar.get_x() + bar.get_width() / 2, height),
-                            xytext=(0, 3),
-                            textcoords="offset points",
-                            ha='center', va='bottom',
-                            fontsize=9)
-            
-            plt.tight_layout()
-            st.pyplot(fig)
-
-    # About Page
-    elif page == "About":
-        st.markdown('<p class="medium-font">About This Application</p>', unsafe_allow_html=True)
+            logger.info("Demo model trained and saved to session state")
+    
+    # Add About section in sidebar
+    with st.sidebar.expander("About This App"):
+        st.write("""
+        This Agricultural Crop Price Prediction System helps farmers, traders, and policymakers predict
+        crop prices based on historical data and current market factors.
         
-        st.markdown("""
-        <div class="info-box">
-        <h3>Advanced Crop Price Prediction System</h3>
-        <p>This application is designed to help farmers and agricultural stakeholders make informed decisions 
-        by predicting crop prices based on various factors and comparing them with real-time market rates.</p>
-        </div>
-        """, unsafe_allow_html=True)
+        **Features:**
+        - Data exploration and visualization
+        - Machine learning model training
+        - Price prediction with current market trend adjustments
+        - Forecasting of future prices
+        - Market insights and recommendations
         
-        st.subheader("Features")
-        st.markdown("""
-        - **Data Management**: Upload and analyze crop data
-        - **Model Training**: Train machine learning models for price prediction
-        - **Price Prediction**: Predict crop prices based on multiple factors
-        - **Market Analysis**: Analyze real-time market trends and forecasts
-        - **Batch Processing**: Process multiple predictions at once
+        **Version:** 2.0.0
         """)
-        
-        st.subheader("How It Works")
+    
+    # Add Resources in sidebar
+    with st.sidebar.expander("Resources"):
         st.markdown("""
-        1. **Data Collection**: The system uses CSV data containing weather quality, soil conditions, crop types, and other relevant parameters.
-        2. **Model Training**: It employs Random Forest regression to learn patterns from historical data.
-        3. **Prediction**: Based on the trained model, it predicts crop prices for given conditions.
-        4. **Market Integration**: It compares predicted prices with real-time market rates.
-        5. **Analysis**: It provides insights and recommendations based on the prediction and market data.
+        - [Agricultural Market Information](https://agmarknet.gov.in/)
+        - [Weather Forecasts](https://mausam.imd.gov.in/)
+        - [Minimum Support Prices](https://agricoop.nic.in/)
+        - [Crop Production Statistics](https://eands.dacnet.nic.in/)
         """)
-        
-        st.subheader("Required Data Format")
-        st.markdown("""
-        The CSV file should contain the following types of columns:
-        - **Weather parameters**: Temperature, rainfall, humidity, etc.
-        - **Soil parameters**: pH, nutrient content, soil type, etc.
-        - **Crop information**: Crop type, variety, growth stage, etc.
-        - **Other factors**: Irrigation method, fertilizer application, etc.
-        - **Target variable**: 'crop_price' - the actual price to train the model
-        """)
-        
-        # Sample CSV structure
-        sample_data = {
-            'soil_ph': [6.5, 7.2, 5.8, 6.9, 7.0],
-            'soil_nutrient': ['high', 'medium', 'low', 'high', 'medium'],
-            'temperature': [32.5, 28.4, 30.2, 29.8, 31.5],
-            'rainfall': [120, 85, 150, 95, 110],
-            'humidity': [65, 72, 68, 70, 75],
-            'crop_type': ['rice', 'wheat', 'rice', 'maize', 'wheat'],
-            'irrigation': ['flood', 'drip', 'flood', 'sprinkler', 'drip'],
-            'crop_price': [45.2, 32.1, 44.8, 25.6, 33.5]
-        }
-        
-        st.write("Sample CSV structure:")
-        st.dataframe(pd.DataFrame(sample_data))
-        
-        # Download sample CSV
-        sample_df = pd.DataFrame(sample_data)
-        st.download_button(
-            "Download Sample CSV",
-            sample_df.to_csv(index=False).encode('utf-8'),
-            "sample_crop_data.csv",
-            "text/csv",
-            key='download-sample-csv'
-        )
-        
-        st.subheader("Technologies Used")
-        st.markdown("""
-        - **Python**: Core programming language
-        - **Pandas & NumPy**: Data manipulation and numerical computing
-        - **Scikit-learn**: Machine learning algorithms
-        - **Matplotlib & Seaborn**: Data visualization
-        - **Streamlit**: Web application framework
-        - **Joblib**: Model serialization
-        """)
-        
-        st.subheader("Future Enhancements")
-        st.markdown("""
-        - **Weather API Integration**: Real-time weather data for better predictions
-        - **Advanced Models**: Implementation of deep learning models for higher accuracy
-        - **Mobile Application**: Cross-platform mobile app for field use
-        - **Crop Recommendation**: Recommend optimal crops based on conditions
-        - **Supply Chain Integration**: Connect with supply chain logistics
-        """)
-
-
-def run_command_line_app():
-    """Command line interface for batch processing"""
-    import argparse
     
-    parser = argparse.ArgumentParser(description='Crop Price Prediction CLI')
-    parser.add_argument('--input', '-i', help='Input CSV file path', required=True)
-    parser.add_argument('--model', '-m', help='Model file path', required=True)
-    parser.add_argument('--output', '-o', help='Output CSV file path', default='predictions.csv')
-    parser.add_argument('--market', action='store_true', help='Compare with market prices')
-    
-    args = parser.parse_args()
-    
-    print(f"Loading model from {args.model}...")
-    app = CropPredictionApp()
-    success, message = app.load_model(args.model)
-    
-    if not success:
-        print(f"Error: {message}")
-        return
-    
-    print(f"Loading data from {args.input}...")
-    data = pd.read_csv(args.input)
-    
-    print("Making predictions...")
-    predictions = []
-    for _, row in data.iterrows():
-        success, pred = app.predict_price(row)
-        if success:
-            predictions.append(pred)
-        else:
-            predictions.append(None)
-    
-    data['predicted_price'] = predictions
-    
-    if args.market:
-        print("Fetching market prices...")
-        market_prices = []
-        for _, row in data.iterrows():
-            if 'crop_type' in row and 'location' in row:
-                success, market_data = app.get_market_price(row['crop_type'], row['location'])
-                if success:
-                    market_prices.append(market_data['current_price'])
-                else:
-                    market_prices.append(None)
-            else:
-                market_prices.append(None)
-        
-        data['market_price'] = market_prices
-        
-        # Calculate difference
-        mask = (~data['predicted_price'].isna()) & (~data['market_price'].isna())
-        data.loc[mask, 'price_difference'] = data.loc[mask, 'predicted_price'] - data.loc[mask, 'market_price']
-        data.loc[mask, 'price_difference_percent'] = (data.loc[mask, 'price_difference'] / data.loc[mask, 'market_price']) * 100
-    
-    print(f"Saving results to {args.output}...")
-    data.to_csv(args.output, index=False)
-    print("Done!")
-
-
-if __name__ == "__main__":
-    import sys
-    
-    if len(sys.argv) > 1:
-        # Command line mode
-        run_command_line_app()
-    else:
-        # Web app mode
-        create_streamlit_app()
+    # Add Feedback section in sidebar
+    with st.sidebar.expander("Provide Feedback"):
+        st.text_area("Share your feedback or suggestions:", "")
+        if st.button("Submit Feedback"):
+            st.success("Thank you for your feedback!")
