@@ -72,7 +72,6 @@ st.markdown("""
     margin-bottom: 1rem;
 }
 .info-text {
-    background-color: #f0f8ff;
     padding: 1rem;
     border-radius: 5px;
     margin-bottom: 1rem;
