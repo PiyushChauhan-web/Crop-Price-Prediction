@@ -83,6 +83,10 @@ Maharashtra, Pune, Pune Market, Wheat, Common, 2024-01-15, 2200, 120, 28, 75, 65
 
 ---
 
+## 🌐 Live Application
+
+🚀 [Click here to access the live Crop Price Prediction App](https://crop-price-prediction45.streamlit.app/)
+
 ## ⚙️ Getting Started
 
 Clone the repository and run the application:
