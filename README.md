@@ -1,188 +1,175 @@
-# 🌾 Agricultural Crop Price Prediction System
+🌾 Agricultural Crop Price Prediction System
+📋 Overview
+An interactive data-driven application that predicts agricultural crop prices across Indian states using machine learning. It helps farmers and traders make informed decisions based on historical data and current market trends.
 
-## 📋 Overview
+🎯 Project Objectives
+Provide accurate price predictions for agricultural crops
 
-An interactive data-driven application that predicts agricultural crop prices across Indian states using machine learning, helping farmers and traders make informed decisions based on historical data and current market trends.
+Analyze historical price patterns with seasonal variations
 
-<details>
-<summary><b>🎯 Project Objectives</b></summary>
+Incorporate market factors into predictions
 
-- Provide accurate price predictions for agricultural crops
-- Analyze historical price patterns with seasonal variations
-- Incorporate market factors into predictions
-- Offer actionable insights and recommendations
-- Present forecasts in an intuitive format for stakeholders
-</details>
+Offer actionable insights and recommendations
 
-## 💻 Technology Stack
+Present forecasts in an intuitive format for stakeholders
 
-<details open>
-<summary><b>Core Technologies</b></summary>
+💻 Technology Stack
+Core Technologies:
 
-- **Python 3.8+**: Core programming language
-- **Streamlit**: Interactive web application framework
-- **Pandas & NumPy**: Data manipulation and analysis
-- **Scikit-learn**: Machine learning algorithms
-- **Matplotlib & Seaborn**: Data visualization
-- **Pickle**: Model persistence
-</details>
+Python 3.8+
 
-<details>
-<summary><b>ML Implementation</b></summary>
+Streamlit
 
-- **Random Forest Regressor**: Main prediction algorithm
-- **Feature Engineering**: Creating meaningful predictors
-- **Model Evaluation**: RMSE and R² metrics
-- **Cross-validation**: For model robustness
-</details>
+Pandas & NumPy
 
-## 🚀 Key Features
+Scikit-learn
 
-<details>
-<summary><b>Data Exploration</b></summary>
+Matplotlib & Seaborn
 
-- Upload and analyze agricultural price datasets (CSV/Excel)
-- View data summary statistics and distributions
-- Visualize price trends over time
-- Identify data quality issues and missing values
-- Explore relationships between variables
-</details>
+Pickle
 
-<details>
-<summary><b>Model Training</b></summary>
+Machine Learning Implementation:
 
-- Select relevant features for prediction
-- Configure model parameters
-- Train Random Forest regression models
-- Evaluate model performance with key metrics
-- Visualize feature importance rankings
-- Save models for future predictions
-</details>
+Random Forest Regressor
 
-<details>
-<summary><b>Price Prediction</b></summary>
+Feature Engineering
 
-- Select state and crop combinations
-- Input environmental factors (rainfall, temperature, soil moisture)
-- View current market trends for selected crop
-- Get price predictions with confidence measures
-- View 7-day price forecasts with trend analysis
-- Receive recommendations based on predictions
-</details>
+Model Evaluation using RMSE and R²
 
-<details>
-<summary><b>Market Insights</b></summary>
+Cross-validation
 
-- Browse current market trends for major crops
-- Access region-specific market highlights
-- View seasonal price patterns
-- Get policy impact information
-- Stay updated with agricultural news
-- Receive tailored recommendations
-</details>
+🚀 Key Features
+1. Data Exploration
 
-## 🗺️ Coverage
+Upload and analyze agricultural price datasets (CSV/Excel)
 
-<details>
-<summary><b>States and Crops Coverage</b></summary>
+View data summary statistics
 
-| Region | States Covered | Major Crops |
-|--------|----------------|-------------|
-| North | Punjab, Haryana, Uttar Pradesh, Rajasthan, Uttarakhand | Wheat, Rice, Sugarcane, Cotton, Barley |
-| South | Tamil Nadu, Karnataka, Kerala, Andhra Pradesh, Telangana | Rice, Coffee, Spices, Coconut, Sugarcane |
-| East | West Bengal, Bihar, Odisha, Jharkhand, Assam | Rice, Jute, Tea, Maize, Potatoes |
-| West | Maharashtra, Gujarat, Madhya Pradesh, Chhattisgarh, Himachal Pradesh | Cotton, Jowar, Soybean, Groundnut, Apples |
+Visualize price trends over time
 
-</details>
+Identify missing or inconsistent data
 
-## 📊 Data Format
+Explore relationships between variables
 
-<details>
-<summary><b>Required Data Columns</b></summary>
+2. Model Training
 
-```
+Select features and configure model
+
+Train Random Forest regression models
+
+Evaluate with RMSE and R²
+
+Visualize feature importance
+
+Save trained models
+
+3. Price Prediction
+
+Choose state and crop
+
+Enter rainfall, temperature, soil moisture, etc.
+
+View current market trends
+
+Get price predictions with confidence
+
+Access 7-day forecasts and recommendations
+
+4. Market Insights
+
+View current crop trends
+
+Access region-specific highlights
+
+Analyze seasonal price patterns
+
+Get updates on policy impact and news
+
+🗺️ States and Crops Coverage
+
+Region	States Covered	Major Crops
+North	Punjab, Haryana, Uttar Pradesh, Rajasthan, Uttarakhand	Wheat, Rice, Sugarcane, Cotton, Barley
+South	Tamil Nadu, Karnataka, Kerala, Andhra Pradesh, Telangana	Rice, Coffee, Spices, Coconut, Sugarcane
+East	West Bengal, Bihar, Odisha, Jharkhand, Assam	Rice, Jute, Tea, Maize, Potatoes
+West	Maharashtra, Gujarat, Madhya Pradesh, Chhattisgarh, Himachal Pradesh	Cotton, Jowar, Soybean, Groundnut, Apples
+📊 Required Data Format
+Columns:
+
+javascript
+Copy
+Edit
 State, District, Market, Crop, Variety, Date, Price, Rainfall, Temperature, Soil_Moisture, Humidity
-```
+Sample Row:
 
-**Sample Data Row:**
-```
+yaml
+Copy
+Edit
 Maharashtra, Pune, Pune Market, Wheat, Common, 2024-01-15, 2200, 120, 28, 75, 65
-```
-</details>
-
-## ⚙️ Quick Start
-
-<details>
-<summary><b>Installation Steps</b></summary>
-
-```bash
-# Clone repository
+⚙️ Quick Start
+bash
+Copy
+Edit
+# Clone the repository
 git clone https://github.com/YourUsername/Crop-Price-Prediction.git
 cd Crop-Price-Prediction
 
-# Set up environment
+# Set up a virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run application
+# Launch the app
 streamlit run agri_price_prediction.py
-```
-</details>
+🔍 How It Works
+Data Preprocessing – Clean data, handle nulls, encode categories
 
-## 🔍 How It Works
+Feature Engineering – Extract time-based and seasonal features
 
-<details>
-<summary><b>Prediction Methodology</b></summary>
+Model Training – Train Random Forest on historical data
 
-1. **Data Preprocessing**: Clean data, handle missing values, encode categories
-2. **Feature Engineering**: Extract time features, create seasonal indicators
-3. **Model Training**: Train Random Forest on historical data
-4. **Prediction**: Generate base price prediction
-5. **Market Adjustment**: Apply current trend factors
-6. **Forecast Generation**: Create 7-day projections with trend analysis
-</details>
+Prediction – Generate predictions and apply trend adjustments
 
-## 🔮 Future Roadmap
+Forecasting – Show 7-day projections with visual analysis
 
-<details>
-<summary><b>Planned Enhancements</b></summary>
+🔮 Future Roadmap
+Weather API for automated inputs
 
-- Weather API integration for automated inputs
-- LSTM implementation for time series forecasting
-- Mobile application development
-- Multi-language support
-- SMS price alerts
-- Government MSP data integration
-- Satellite imagery analysis
-</details>
+LSTM model for better time-series forecasting
 
-## 🤝 Quick Contribution
+Mobile application version
 
-<details>
-<summary><b>How to Contribute</b></summary>
+Multi-language support
 
-1. Fork repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Commit changes: `git commit -m 'Add new feature'`
-4. Push to branch: `git push origin feature/new-feature`
-5. Submit Pull Request
+SMS-based alerts
 
-**Development Guidelines:**
-- Follow PEP 8 coding standards
-- Include docstrings for functions
-- Add appropriate comments
-- Write tests for new features
-</details>
+Government MSP data integration
 
-## 📮 Contact & Support
+Satellite image analysis for better predictions
 
-For questions, feedback, or support, please [open an issue](https://github.com/YourUsername/Crop-Price-Prediction/issues) or contact project maintainers.
+🤝 How to Contribute
+Fork the repository
 
----
+Create a branch: git checkout -b feature/new-feature
 
-<div align="center">
-<p>Made with ❤️ for Indian agricultural stakeholders</p>
-</div>
+Commit changes: git commit -m "Add new feature"
+
+Push the branch: git push origin feature/new-feature
+
+Open a Pull Request
+
+Guidelines:
+
+Follow PEP 8
+
+Include docstrings
+
+Add relevant comments
+
+Write test cases
+
+📮 Contact & Support
+For questions or support, please open an issue here.
+
+<p align="center">Made with ❤️ for Indian agricultural stakeholders</p>
