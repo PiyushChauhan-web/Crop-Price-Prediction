@@ -1,6 +1,3 @@
-# Saving the already corrected README content directly to a file for download
-
-readme_content = """
 # 🌾 Agricultural Crop Price Prediction System
 
 An interactive machine learning web app that predicts agricultural crop prices across Indian states. Designed to support farmers, traders, and policymakers with data-driven insights based on historical prices, environmental factors, and current market trends.
